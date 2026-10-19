@@ -76,3 +76,13 @@ describe('sponge v3', () => {
     expect(back.dataVersion).toBe(4903);
   });
 });
+
+describe('oversized schematics', () => {
+  it('rejects more blocks than a VoxelSet can hold, before decoding them', async () => {
+    const root = T.comp(
+      { Schematic: T.comp({ Version: T.int(3), DataVersion: T.int(4903), Width: T.short(4096), Height: T.short(4096), Length: T.short(2), Blocks: T.comp({ Palette: T.comp({ 'minecraft:air': T.int(0) }), Data: T.byteArray([]) }) }) },
+      '',
+    );
+    expect(() => readSponge(root)).toThrow(/4096×4096×2 has .* blocks, more than the .* blocks blockwright can hold at once/);
+  });
+});

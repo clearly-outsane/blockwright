@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BlockState, VoxelSet, box, boxSize, boxVolume, boxContains, key, unkey } from '../../src/voxel/voxels.js';
+import { BlockState, VoxelSet, MAX_VOXELSET_SIZE, box, boxSize, boxVolume, boxContains, key, unkey } from '../../src/voxel/voxels.js';
 
 describe('BlockState', () => {
   it('parses a bare name and adds the minecraft namespace', () => {
@@ -106,5 +106,20 @@ describe('VoxelSet', () => {
     a.merge(b);
     expect(a.get(0, 0, 0)?.toCommand()).toBe('dirt');
     expect(a.size).toBe(2);
+  });
+});
+
+describe('VoxelSet size limit', () => {
+  it('refuses to grow past the JavaScript Map limit with a clear message', () => {
+    const v = new VoxelSet();
+    v.set(0, 0, 0, BlockState.parse('stone'));
+    // Filling 2^24 real entries takes gigabytes; pretend the map is already full instead.
+    Object.defineProperty((v as unknown as { map: Map<string, BlockState> }).map, 'size', { value: MAX_VOXELSET_SIZE });
+    expect(() => v.set(1, 0, 0, BlockState.parse('stone'))).toThrow(/blockwright can hold at once \(a JavaScript Map limit\)/);
+    const other = new VoxelSet();
+    other.set(5, 5, 5, BlockState.parse('stone'));
+    expect(() => v.merge(other)).toThrow(/a JavaScript Map limit/);
+    v.set(0, 0, 0, BlockState.parse('dirt')); // replacing a block that is already there still works
+    expect(v.get(0, 0, 0)?.toCommand()).toBe('dirt');
   });
 });

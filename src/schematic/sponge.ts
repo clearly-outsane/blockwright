@@ -1,4 +1,4 @@
-import { BlockState, VoxelSet, type Vec3 } from '../voxel/voxels.js';
+import { BlockState, VoxelSet, MAX_VOXELSET_SIZE, voxelSetFullMessage, type Vec3 } from '../voxel/voxels.js';
 import { T, num, compound, listOf, intList, bytes, omitKeys, type NbtRoot, type CompoundValue } from '../nbt/nbt.js';
 import type { Clipboard, BlockEntity } from './clipboard.js';
 
@@ -67,6 +67,8 @@ export function readSponge(root: NbtRoot): Clipboard {
   if (!paletteC) throw new Error('sponge: missing Palette');
   const states: BlockState[] = [];
   for (const [text, tag] of Object.entries(paletteC)) states[tag.value as number] = BlockState.parse(text);
+  // Reject before decoding: the varints alone would take seconds, then the VoxelSet would fail.
+  if (W * H * L > MAX_VOXELSET_SIZE) throw new Error(voxelSetFullMessage(`sponge: schematic ${W}×${H}×${L}`, W * H * L));
   const indices = decodeVarints(data, W * H * L);
   const voxels = new VoxelSet();
   for (let i = 0; i < indices.length; i++) {

@@ -83,3 +83,44 @@ describe('readVoxels / readHeightmap', () => {
     expect(h.heights[0][0]).toBe(62);
   });
 });
+
+describe('26.3 chunks', () => {
+  let dir: string;
+  beforeAll(async () => {
+    dir = path.join(await mkdtemp(path.join(tmpdir(), 'bw-')), 'region');
+    await writeRegionFiles(dir, [
+      {
+        cx: 0,
+        cz: 0,
+        format: '26.3',
+        blocks: [
+          // Section 0: only default states, so the palette is a list of bare names.
+          { x: 1, y: 0, z: 1, state: 'minecraft:stone' },
+          { x: 1, y: 1, z: 1, state: 'minecraft:powered_rail' },
+          // Section 1: a non-default state too, so the defaults are wrapped as {"": name}.
+          { x: 2, y: 16, z: 2, state: 'minecraft:stone' },
+          { x: 2, y: 17, z: 2, state: 'minecraft:powered_rail' },
+          { x: 3, y: 17, z: 2, state: 'minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]' },
+        ],
+      },
+    ]);
+  });
+
+  it('reads palettes of bare names and of wrapped names, with default states filled in', async () => {
+    const chunk = (await readChunk(dir, 0, 0))!;
+    expect(chunk.dataVersion).toBe(5023);
+    expect(chunkBlock(chunk, 1, 0, 1).toString()).toBe('minecraft:stone');
+    expect(chunkBlock(chunk, 1, 1, 1).toString()).toBe('minecraft:powered_rail[powered=false,shape=north_south,waterlogged=false]');
+    expect(chunkBlock(chunk, 0, 0, 0).isAir).toBe(true);
+    expect(chunkBlock(chunk, 2, 16, 2).toString()).toBe('minecraft:stone');
+    expect(chunkBlock(chunk, 2, 17, 2).toString()).toBe('minecraft:powered_rail[powered=false,shape=north_south,waterlogged=false]');
+    expect(chunkBlock(chunk, 3, 17, 2).toString()).toBe('minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]');
+    expect(chunkBlock(chunk, 0, 16, 0).isAir).toBe(true);
+  });
+
+  it('reads a box the same way', async () => {
+    const r = await readVoxels(dir, { min: [1, 0, 1], max: [3, 17, 2] });
+    expect(r.voxels.get(1, 1, 1)?.toCommand()).toBe('powered_rail[powered=false,shape=north_south,waterlogged=false]');
+    expect(r.voxels.get(3, 17, 2)?.toCommand()).toBe('powered_rail[powered=true,shape=east_west,waterlogged=false]');
+  });
+});

@@ -62,10 +62,14 @@ function isGzip(buf: Buffer): boolean {
   return buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b;
 }
 
-/** Parse big-endian NBT, gzip-compressed or not. */
+/**
+ * Parse big-endian NBT, gzip-compressed or not. prismarine-nbt refuses arrays and lists over
+ * 0xffffff entries by default ("array size is abnormally large"), which a big .schem's block
+ * data passes easily, so that check is off: the input is a file on disk, not a network peer.
+ */
 export async function parseNbt(buf: Buffer): Promise<NbtRoot> {
   const raw = isGzip(buf) ? gunzipSync(buf) : buf;
-  return nbt.parseUncompressed(raw, 'big') as unknown as NbtRoot;
+  return nbt.parseUncompressed(raw, 'big', { noArraySizeCheck: true }) as unknown as NbtRoot;
 }
 
 export function writeNbtRaw(root: NbtRoot): Buffer {

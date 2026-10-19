@@ -65,3 +65,20 @@ describe('nbt helpers', () => {
     }
   });
 });
+
+describe('large arrays', () => {
+  it('reads a byte array past prismarine-nbt\'s 0xffffff default limit', async () => {
+    // Hand-built: root compound "" { byteArray "a" [0x1000000 bytes] }, as a big .schem's block data.
+    const n = 0x1000000;
+    const buf = Buffer.alloc(3 + 3 + 1 + 4 + n + 1);
+    buf.writeUInt8(10, 0); // TAG_Compound, empty name
+    buf.writeUInt8(7, 3); // TAG_Byte_Array
+    buf.writeUInt16BE(1, 4);
+    buf.write('a', 6);
+    buf.writeInt32BE(n, 7);
+    buf.writeInt8(-5, 11 + n - 1);
+    const a = (await parseNbt(buf)).value.a.value as number[];
+    expect(a).toHaveLength(n);
+    expect(a[n - 1]).toBe(-5);
+  });
+});

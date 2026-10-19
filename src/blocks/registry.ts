@@ -11,6 +11,33 @@ function registry(): Registry {
   return cached;
 }
 
+const defaultsCache = new Map<string, Readonly<Record<string, string>>>();
+
+/**
+ * Property values of a block's default state per the bundled registry, or {} for a block it
+ * doesn't know (another namespace, or newer than the registry). minecraft-data numbers a block's
+ * states with the last property varying fastest, and lists bool values in the game's order
+ * (true, false), so the default state's offset from minStateId decodes digit by digit.
+ */
+export function defaultProps(name: string): Readonly<Record<string, string>> {
+  let props = defaultsCache.get(name);
+  if (props) return props;
+  const def = name.startsWith('minecraft:') ? registry().blocksByName[name.slice(10)] : undefined;
+  const out: Record<string, string> = {};
+  if (def?.states?.length && def.defaultState !== undefined && def.minStateId !== undefined) {
+    let i = def.defaultState - def.minStateId;
+    for (const p of [...def.states].reverse()) {
+      const n = p.num_values;
+      const at = i % n;
+      i = Math.floor(i / n);
+      out[p.name] = p.type === 'bool' ? String(at === 0) : String(p.values?.[at]);
+    }
+  }
+  props = Object.freeze(out);
+  defaultsCache.set(name, props);
+  return props;
+}
+
 export interface ValidationIssue {
   block: string;
   message: string;

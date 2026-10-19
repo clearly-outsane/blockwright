@@ -13,7 +13,7 @@ import { fakeServerDir, flatChunk } from '../helpers/server-dir.js';
 import { formatApplyResult } from '../../src/tools/result.js';
 import type { BlockEntity } from '../../src/schematic/clipboard.js';
 import { readStructure } from '../../src/schematic/structure.js';
-import { parseNbt, T } from '../../src/nbt/nbt.js';
+import { parseNbt, num, T } from '../../src/nbt/nbt.js';
 
 const st = (s: string) => BlockState.parse(s);
 const UUID = '11111111-2222-3333-4444-555555555555';
@@ -317,6 +317,28 @@ describe('read, snapshot, restore', () => {
     expect(await bridge.listSnapshots()).toHaveLength(0);
     expect(existsSync(path.join(dir, `${snaps[0].pieces[0].name}.nbt`))).toBe(false);
     await expect(bridge.restore('nope')).rejects.toThrow(/no snapshot/);
+  });
+});
+
+describe('26.3 worlds', () => {
+  // 26.3 compacts default states to bare names in chunk palettes and cannot read an old-shape
+  // structure palette stamped with its own DataVersion (it places air, so undo erased terrain).
+  it('snapshots read compacted chunks, and snapshot and paste files carry an upgradable DataVersion', async () => {
+    const chunk = { ...flatChunk(), format: '26.3' as const };
+    chunk.blocks.push({ x: 0, y: 64, z: 0, state: 'minecraft:powered_rail' });
+    const serverDir = await fakeServerDir([chunk]);
+    const bridge = new RconBridge({ rcon, config: testConfig({ serverDir, dataVersion: 5023, mcVersion: '26.3', structureThreshold: 0 }), now });
+    const r = await bridge.apply(cube('stone'), { world: overworld });
+    expect(r.method).toBe('structure');
+    const dir = path.join(serverDir, 'world', 'generated', 'blockwright', 'structure');
+    const [snap] = await bridge.listSnapshots();
+    const snapRoot = await parseNbt(await fs.readFile(path.join(dir, `${snap.pieces[0].name}.nbt`)));
+    expect(num(snapRoot.value, 'DataVersion')).toBe(4903);
+    const before = readStructure(snapRoot);
+    expect(before.voxels.get(0, 0, 0)?.toString()).toBe('minecraft:powered_rail[powered=false,shape=north_south,waterlogged=false]');
+    expect(before.voxels.get(1, 0, 0)?.isAir).toBe(true);
+    const paste = readdirSync(dir).find((f) => f.startsWith('paste_'))!;
+    expect(num((await parseNbt(await fs.readFile(path.join(dir, paste)))).value, 'DataVersion')).toBe(4903);
   });
 });
 

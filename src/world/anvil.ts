@@ -4,6 +4,7 @@ import { inflateSync, gunzipSync } from 'node:zlib';
 import { BlockState, VoxelSet, type Box, type Vec3 } from '../voxel/voxels.js';
 import { parseNbt, num, str, compound, listOf, longPairs, longPairToBigInt, omitKeys, type CompoundValue } from '../nbt/nbt.js';
 import type { BlockEntity } from '../schematic/clipboard.js';
+import { stateFromPalette, type PaletteEntry } from '../blocks/palette.js';
 
 const AIR = BlockState.parse('air');
 
@@ -49,18 +50,11 @@ export function packLongs(values: number[], bits: number): bigint[] {
   return out;
 }
 
-function stateFromPalette(entry: CompoundValue): BlockState {
-  const props: Record<string, string> = {};
-  const p = compound(entry, 'Properties');
-  if (p) for (const [k, v] of Object.entries(p)) props[k] = String(v.value);
-  return new BlockState(str(entry, 'Name'), props);
-}
-
 export function decodeSection(sec: CompoundValue): Section {
   const y = num(sec, 'Y');
   const bs = compound(sec, 'block_states');
   if (!bs) return { y, palette: [AIR], indices: undefined };
-  const palette = (listOf(bs, 'palette') as CompoundValue[]).map(stateFromPalette);
+  const palette = (listOf(bs, 'palette') as PaletteEntry[]).map(stateFromPalette);
   if (palette.length === 0) return { y, palette: [AIR], indices: undefined };
   const data = longPairs(bs, 'data');
   if (palette.length === 1 || data.length === 0) return { y, palette, indices: undefined };

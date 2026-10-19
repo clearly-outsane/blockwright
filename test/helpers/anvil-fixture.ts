@@ -1,7 +1,7 @@
 import { deflateSync } from 'node:zlib';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { T, writeNbtRaw, bigIntToLongPair, type CompoundValue } from '../../src/nbt/nbt.js';
+import { T, writeNbtRaw, bigIntToLongPair, type CompoundValue, type NbtTag } from '../../src/nbt/nbt.js';
 import { packLongs } from '../../src/world/anvil.js';
 
 export interface FixtureChunk {
@@ -10,20 +10,36 @@ export interface FixtureChunk {
   /** y → {x,z} → block state text ("minecraft:stone" or with [props]) — everything else is air. */
   blocks: Array<{ x: number; y: number; z: number; state: string }>;
   blockEntities?: CompoundValue[];
+  /**
+   * Palette layout. '26.2' (default): every entry {Name, Properties?}. '26.3': {id, properties},
+   * and an entry written without [props] stands for a default state, stored as a bare string
+   * (whole palette of strings) or wrapped as {"": name} when the palette also holds compounds.
+   */
+  format?: '26.2' | '26.3';
+}
+
+function splitState(text: string): { name: string; props: CompoundValue | undefined } {
+  const m = /^([^\[]+)(?:\[(.*)\])?$/.exec(text)!;
+  if (!m[2]) return { name: m[1], props: undefined };
+  const props: CompoundValue = {};
+  for (const pair of m[2].split(',')) {
+    const [k, v] = pair.split('=');
+    props[k] = T.string(v);
+  }
+  return { name: m[1], props };
 }
 
 function paletteEntry(text: string): CompoundValue {
-  const m = /^([^\[]+)(?:\[(.*)\])?$/.exec(text)!;
-  const entry: CompoundValue = { Name: T.string(m[1]) };
-  if (m[2]) {
-    const props: CompoundValue = {};
-    for (const pair of m[2].split(',')) {
-      const [k, v] = pair.split('=');
-      props[k] = T.string(v);
-    }
-    entry.Properties = T.comp(props);
-  }
+  const { name, props } = splitState(text);
+  const entry: CompoundValue = { Name: T.string(name) };
+  if (props) entry.Properties = T.comp(props);
   return entry;
+}
+
+function palette263(texts: string[]): NbtTag {
+  const states = texts.map(splitState);
+  if (states.every((s) => !s.props)) return T.list(T.string(states.map((s) => s.name)));
+  return T.list(T.comp(states.map((s) => (s.props ? { id: T.string(s.name), properties: T.comp(s.props) } : { '': T.string(s.name) }))));
 }
 
 /** Build chunk NBT the way the game does: 24 sections (−4..19), palette+packed data, MOTION_BLOCKING heightmap. */
@@ -44,7 +60,7 @@ export function buildChunk(c: FixtureChunk): Buffer {
       const col = ((b.z & 15) << 4) | (b.x & 15);
       heights[col] = Math.max(heights[col], b.y - -64 + 1);
     }
-    const blockStates: CompoundValue = { palette: T.list(T.comp(palette.map(paletteEntry))) };
+    const blockStates: CompoundValue = { palette: c.format === '26.3' ? palette263(palette) : T.list(T.comp(palette.map(paletteEntry))) };
     if (palette.length > 1) {
       const bits = Math.max(4, Math.ceil(Math.log2(palette.length)));
       blockStates.data = T.longArray(packLongs(indices, bits).map(bigIntToLongPair));
@@ -53,7 +69,7 @@ export function buildChunk(c: FixtureChunk): Buffer {
   }
   const root = T.comp(
     {
-      DataVersion: T.int(4903),
+      DataVersion: T.int(c.format === '26.3' ? 5023 : 4903),
       xPos: T.int(c.cx),
       zPos: T.int(c.cz),
       yPos: T.int(-4),

@@ -126,6 +126,14 @@ export function unkey(k: string): Vec3 {
   return [Number(parts[0]), Number(parts[1]), Number(parts[2])];
 }
 
+/** Most blocks one VoxelSet can hold: it keeps one Map entry per block, and V8 Maps stop at 2^24. */
+export const MAX_VOXELSET_SIZE = 2 ** 24;
+
+export function voxelSetFullMessage(subject: string, blocks?: number): string {
+  const has = blocks === undefined ? 'more than' : `${blocks.toLocaleString()} blocks, more than`;
+  return `${subject} has ${has} the ${MAX_VOXELSET_SIZE.toLocaleString()} blocks blockwright can hold at once (a JavaScript Map limit). Split it into smaller pieces.`;
+}
+
 export class VoxelSet {
   private readonly map = new Map<string, BlockState>();
   private cachedBounds: Box | undefined | null = null; // null = stale
@@ -134,8 +142,13 @@ export class VoxelSet {
     return this.map.size;
   }
 
+  private put(k: string, state: BlockState): void {
+    if (this.map.size >= MAX_VOXELSET_SIZE && !this.map.has(k)) throw new RangeError(voxelSetFullMessage('This operation'));
+    this.map.set(k, state);
+  }
+
   set(x: number, y: number, z: number, state: BlockState): void {
-    this.map.set(key(x, y, z), state);
+    this.put(key(x, y, z), state);
     this.cachedBounds = null;
   }
 
@@ -197,7 +210,7 @@ export class VoxelSet {
   }
 
   merge(other: VoxelSet): this {
-    for (const [k, s] of other.map) this.map.set(k, s);
+    for (const [k, s] of other.map) this.put(k, s);
     this.cachedBounds = null;
     return this;
   }
