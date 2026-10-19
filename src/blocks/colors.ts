@@ -10,6 +10,12 @@ export interface Rgba {
 type Rgb = [number, number, number];
 
 const TABLE: Record<string, Rgb> = {
+  // Blocks a station build uses that otherwise fell through to a hashed (random) colour.
+  ochre_froglight: [242, 214, 150], verdant_froglight: [214, 234, 186], pearlescent_froglight: [240, 224, 230],
+  spore_blossom: [214, 112, 170], dispenser: [118, 118, 118], dropper: [118, 118, 118], composter: [122, 86, 50],
+  rail: [128, 112, 92], powered_rail: [176, 140, 84], detector_rail: [140, 110, 95], activator_rail: [150, 100, 90],
+  lily_pad: [58, 118, 40], end_rod: [236, 230, 220], cauldron: [70, 70, 76], lily_of_the_valley: [232, 236, 226],
+  hanging_roots: [160, 116, 90],
   stone: [125, 125, 125], cobblestone: [110, 110, 110], stone_bricks: [122, 122, 122], mossy_cobblestone: [95, 110, 85],
   mossy_stone_bricks: [105, 118, 95], smooth_stone: [160, 160, 160], andesite: [136, 136, 136], diorite: [188, 188, 188],
   granite: [150, 105, 90], deepslate: [80, 80, 82], cobbled_deepslate: [77, 77, 80], deepslate_bricks: [70, 70, 72],

@@ -38,7 +38,8 @@ export function registerRenderTools(server: McpServer, ctx: AppContext): void {
       title: 'Look at the world as a picture',
       description:
         'Render a box of the live world (or a saved schematic) as PNG images and return them inline, so the build can actually be looked at. ' +
-        'views picks the camera: iso_ne/iso_nw/iso_se/iso_sw are the four isometric corners, top is a map-style plan, and north/south/east/west are straight-on elevations. ' +
+        'views picks the camera: iso_ne/iso_nw/iso_se/iso_sw are the four isometric corners, top is a map-style plan, north/south/east/west are straight-on elevations, and eye stands at `eye` looking at `look_at` in perspective, the way a player sees a room or a street (use it for interiors). ' +
+          'Every block face is outlined, so single blocks can be counted, and glass is see-through. ' +
         'Blocks are drawn with their real shapes — a fence is a post, a slab is half a cell, a lantern is a lamp — because that is what makes a gappy bridge deck, a railing in the wrong place or a road cut into a trench visible at all. ' +
         'Always look from at least two opposite corners before calling a build finished: a top-down view hides every vertical mistake. Nothing is changed in the world.',
       inputSchema: {
@@ -51,6 +52,10 @@ export function registerRenderTools(server: McpServer, ctx: AppContext): void {
         max_pixels: z.number().int().min(64).max(8192).default(2400).describe('Longest side of the image in pixels'),
         hide: z.array(z.string()).optional().describe('Block names drawn as air, e.g. ["oak_leaves","*_leaves"] to see through a forest, or ["water"]'),
         cutaway_y: z.number().int().optional().describe('Ignore everything above this y — lifts the roof off an interior'),
+        eye: z.tuple([z.number(), z.number(), z.number()]).optional().describe('eye view: camera position, e.g. eyes 1.6 above the feet'),
+        look_at: z.tuple([z.number(), z.number(), z.number()]).optional().describe('eye view: the point the camera looks at'),
+        fov: z.number().min(30).max(120).optional().describe('eye view: horizontal field of view in degrees (default 75)'),
+        edges: z.boolean().optional().describe('Outline every block face (default true)'),
         background: z.string().optional().describe('Background colour as "r,g,b" (default sky blue)'),
         label: z.string().optional().describe('Short label used in the file names'),
       },
@@ -92,6 +97,7 @@ export function registerRenderTools(server: McpServer, ctx: AppContext): void {
         const content: CallToolResult['content'] = [];
         const lines: string[] = [`Rendered ${where}.`];
         let dropped = 0;
+        if ((args.views as View[]).includes('eye') && (!args.eye || !args.look_at)) return fail('the eye view needs eye and look_at.');
         for (const view of args.views as View[]) {
           const scene = renderScene(set, {
             view,
@@ -100,6 +106,10 @@ export function registerRenderTools(server: McpServer, ctx: AppContext): void {
             hide: args.hide,
             cutawayY: args.cutaway_y,
             background,
+            edges: args.edges ?? true,
+            eye: args.eye as [number, number, number] | undefined,
+            lookAt: args.look_at as [number, number, number] | undefined,
+            fov: args.fov,
           });
           const png = encodePng(scene.width, scene.height, scene.pixels);
           const file = await writeRender(ctx, `render-${stamp}-${tag}-${view}.png`, png);

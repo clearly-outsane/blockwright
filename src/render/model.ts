@@ -35,7 +35,7 @@ const INVISIBLE = new Set([
 const FLUID = new Set(['water', 'lava']);
 
 /** Cross-shaped plants: a small upright tuft reads better than a full cube of leaf colour. */
-const SMALL_PLANT = /(^|_)(grass|fern|sapling|seagrass|kelp|vine|flower|tulip|orchid|bluet|daisy|cornflower|allium|dandelion|poppy|lily_of_the_valley|wither_rose|eyeblossom|torchflower|pitcher_plant|mushroom|fungus|roots|sprouts|bush|petals|wildflowers|leaf_litter|dead_bush|hanging_moss|glow_lichen|nether_wart|crop|carrots|potatoes|beetroots|wheat|sweet_berry_bush|cocoa|dripleaf|azalea|spore_blossom|sapling)$/;
+const SMALL_PLANT = /(^|_)(grass|fern|sapling|seagrass|kelp|vine|flower|tulip|orchid|bluet|daisy|cornflower|allium|dandelion|poppy|lily_of_the_valley|wither_rose|eyeblossom|torchflower|pitcher_plant|mushroom|fungus|roots|sprouts|bush|dead_bush|hanging_moss|glow_lichen|nether_wart|crop|carrots|potatoes|beetroots|wheat|sweet_berry_bush|cocoa|dripleaf|azalea|spore_blossom|sapling)$/;
 const TALL_PLANT = /^(tall_grass|large_fern|sunflower|lilac|rose_bush|peony|tall_seagrass|pitcher_plant)$/;
 
 /**
@@ -97,6 +97,8 @@ export function blockBoxes(state: BlockState): Box3[] {
   }
   if (n.endsWith('_door')) return [faceSlab(p.facing ?? 'north', 0.1875, p.open === 'true')];
   if (n.endsWith('_carpet') || n === 'moss_carpet' || n === 'pale_moss_carpet') return lower(0.0625);
+  // Ground covers lie flat: drawn as plant tufts they read as a hedge and hide what is behind them.
+  if (n === 'pink_petals' || n === 'wildflowers' || n === 'leaf_litter') return lower(0.1875);
   if (n === 'snow') return lower(Math.min(8, Number(p.layers ?? '1')) * 0.125);
   if (n === 'farmland' || n === 'dirt_path') return lower(0.9375);
   if (n === 'lantern' || n === 'soul_lantern') {
@@ -104,7 +106,13 @@ export function blockBoxes(state: BlockState): Box3[] {
     return [b(0.3125, hanging ? 0.3125 : 0.0625, 0.3125, 0.6875, hanging ? 0.875 : 0.625, 0.6875)];
   }
   if (n.endsWith('torch') || n.endsWith('_candle') || n === 'candle') return [b(0.4375, 0, 0.4375, 0.5625, 0.625, 0.5625)];
-  if (n === 'chain') return [b(0.4375, 0, 0.4375, 0.5625, 1, 0.5625)];
+  // 26.3 calls the plain chain iron_chain (copper chains followed); a chain runs along its axis.
+  if (n === 'chain' || n.endsWith('_chain')) {
+    if (p.axis === 'x') return [b(0, 0.4375, 0.4375, 1, 0.5625, 0.5625)];
+    if (p.axis === 'z') return [b(0.4375, 0.4375, 0, 0.5625, 0.5625, 1)];
+    return [b(0.4375, 0, 0.4375, 0.5625, 1, 0.5625)];
+  }
+  if (n.endsWith('_hanging_sign')) return [b(0.0625, 0, 0.4375, 0.9375, 0.625, 0.5625)];
   if (n === 'end_rod' || n === 'lightning_rod') return [b(0.4375, 0, 0.4375, 0.5625, 1, 0.5625)];
   if (n.endsWith('_button')) return [faceSlab(p.facing ?? 'north', 0.125)];
   if (n.endsWith('_pressure_plate') || n.endsWith('_plate')) return lower(0.0625);

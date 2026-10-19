@@ -117,6 +117,8 @@ render  from: [-978, 55, 448]  to: [-960, 76, 498]
 
 - `views` — `iso_ne` / `iso_nw` / `iso_se` / `iso_sw` (the four isometric corners), `top` (a plan,
   north up) and `north` / `south` / `east` / `west` (straight-on elevations). Up to four per call.
+- `eye` stands at `eye` and looks at `look_at` in perspective (`fov`, default 75°), the way a
+  player sees a room or a street; use it for interiors.
 - Blocks are drawn with the shape they actually have: a fence is a post, a slab is half a cell,
   a lantern is a small lamp, a plant is a tuft. Drawing them all as cubes is what makes a bridge
   with a gappy deck look like a solid slab — and hides exactly the mistake the picture exists to

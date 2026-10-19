@@ -33,7 +33,8 @@ const BG: [number, number, number] = [150, 180, 215];
 describe('renderScene', () => {
   it('renders every camera without blowing up', () => {
     for (const view of VIEWS) {
-      const scene = renderScene(solid(3, 3, 3), { view, scale: 6 });
+      const eye = view === 'eye' ? { eye: [8, 5, 8] as [number, number, number], lookAt: [1.5, 1.5, 1.5] as [number, number, number], maxPixels: 320 } : {};
+      const scene = renderScene(solid(3, 3, 3), { view, scale: 6, ...eye });
       expect(scene.width).toBeGreaterThan(0);
       expect(scene.height).toBeGreaterThan(0);
       expect(scene.pixels.length).toBe(scene.width * scene.height * 3);
@@ -116,5 +117,36 @@ describe('renderScene', () => {
   it('says so plainly when there is nothing to draw', () => {
     expect(() => renderScene(new VoxelSet(), { view: 'top' })).toThrow(/empty/);
     expect(() => renderScene(cube('air'), { view: 'top' })).toThrow(/air or hidden/);
+  });
+
+  it('stands inside a room in the eye view and sees the far wall', () => {
+    const room = new VoxelSet();
+    for (let x = 0; x < 9; x++) for (let z = 0; z < 9; z++) for (let y = 0; y < 5; y++) {
+      const wall = x === 0 || x === 8 || z === 0 || z === 8 || y === 0;
+      if (wall) room.set(x, y, z, BlockState.parse(z === 0 ? 'red_wool' : 'stone'));
+    }
+    const scene = renderScene(room, { view: 'eye', eye: [4.5, 2.6, 6.5], lookAt: [4.5, 2.6, 0], maxPixels: 320 });
+    const centre = pixel(scene, Math.floor(scene.width / 2), Math.floor(scene.height / 2));
+    expect(centre[0]).toBeGreaterThan(centre[1] + 40);   // the red wall straight ahead
+  });
+
+  it('demands a camera position for the eye view', () => {
+    expect(() => renderScene(cube(), { view: 'eye' })).toThrow(/eye and look_at/);
+  });
+
+  it('outlines block faces only when asked', () => {
+    const plain = renderScene(solid(3, 1, 1), { view: 'north', scale: 16 });
+    const lined = renderScene(solid(3, 1, 1), { view: 'north', scale: 16, edges: true });
+    const tones = (sc: { width: number; height: number; pixels: Uint8Array }) => { const t = new Set<string>(); for (let i = 0; i < sc.width * sc.height; i++) t.add(sc.pixels.slice(i * 3, i * 3 + 3).join(',')); return t.size; };
+    expect(tones(lined)).toBeGreaterThan(tones(plain));
+  });
+
+  it('lets the room show through glass', () => {
+    const s = new VoxelSet();
+    s.set(0, 0, 0, BlockState.parse('glass'));
+    s.set(0, 0, 1, BlockState.parse('red_wool'));
+    const scene = renderScene(s, { view: 'north', scale: 16 });
+    const c = pixel(scene, Math.floor(scene.width / 2), Math.floor(scene.height / 2));
+    expect(c[0]).toBeGreaterThan(c[1] + 20);   // red behind the pane tints the glass
   });
 });

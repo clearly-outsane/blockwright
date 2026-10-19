@@ -69,4 +69,20 @@ describe('blockBoxes', () => {
   it('falls back to a full cube for blocks it has never heard of', () => {
     expect(blockBoxes(BlockState.parse('somemod:strange_thing'))).toEqual([{ x0: 0, y0: 0, z0: 0, x1: 1, y1: 1, z1: 1 }]);
   });
+
+  it('draws a 26.3 iron chain as a thin bar along its axis', () => {
+    const up = blockBoxes(BlockState.parse('iron_chain[axis=y]'));
+    const along = blockBoxes(BlockState.parse('iron_chain[axis=z]'));
+    expect(up).toHaveLength(1);
+    expect(up[0].y1 - up[0].y0).toBe(1);
+    expect(up[0].x1 - up[0].x0).toBeLessThan(0.2);
+    expect(along[0].z1 - along[0].z0).toBe(1);
+    expect(along[0].y1 - along[0].y0).toBeLessThan(0.2);
+  });
+
+  it('lays ground covers flat', () => {
+    const p = blockBoxes(BlockState.parse('pink_petals[facing=north,flower_amount=4]'));
+    expect(p[0].y1).toBeLessThan(0.25);
+    expect(p[0].x1 - p[0].x0).toBe(1);
+  });
 });
